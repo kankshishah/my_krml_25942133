@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "my_krml_25942133"
+version = "0.1.0"
+description = "A package for doing great things!"
+authors = ["my_krml_25942133"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pandas = "^2.3.2"
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (==8.2.2)",
+    "jupyterlab (==4.2.3)"
+]
