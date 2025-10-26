@@ -1,4 +1,6 @@
 import pandas as pd
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -23,19 +25,26 @@ def plot_correlation_matrix(df, numeric_cols=None, figsize=(10, 8), cmap="coolwa
         Correlation matrix of the selected numeric variables.
     matplotlib.axes._subplots.AxesSubplot
         Axes object of the heatmap.
+    matplotlib.figure.Figure
+        Matplotlib figure object (useful for testing or saving).
     """
 
     df_copy = df.copy()
-    
+
     # If numeric_cols is None, select all numeric columns
     if numeric_cols is None:
         numeric_cols = df_copy.select_dtypes(include="number").columns.tolist()
 
     corr_matrix = df_copy[numeric_cols].corr()
 
-    plt.figure(figsize=figsize)
-    ax = sns.heatmap(corr_matrix, annot=True, cmap=cmap, fmt=".2f", linewidths=0.5)
-    plt.title("Correlation Matrix")
-    plt.show()
+    # Create figure and axes even if empty
+    fig, ax = plt.subplots(figsize=figsize)
 
-    return corr_matrix, ax
+    if not corr_matrix.empty:
+        sns.heatmap(corr_matrix, annot=True, cmap=cmap, fmt=".2f", linewidths=0.5, ax=ax)
+        ax.set_title("Correlation Matrix")
+    else:
+        ax.set_title("Empty Correlation Matrix")
+        ax.axis("off")  # hide axes for empty plot
+
+    return corr_matrix, ax, fig

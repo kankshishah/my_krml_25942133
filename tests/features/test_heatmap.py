@@ -1,4 +1,4 @@
-# test_plot_correlation_matrix.py
+# tests/features/test_heatmap.py
 import pytest
 import pandas as pd
 from my_krml_25942133.features.heatmap import plot_correlation_matrix  # adjust import path
@@ -15,35 +15,36 @@ def sample_df():
     }
     return pd.DataFrame(data)
 
-def test_plot_correlation_matrix_returns_df_and_ax(sample_df):
-    """Test that function returns correlation matrix and Axes object."""
-    corr_matrix, ax = plot_correlation_matrix(sample_df)
-    
-    # Check type of correlation matrix
+def test_plot_correlation_matrix_default(sample_df):
+    corr_matrix, ax, fig = plot_correlation_matrix(sample_df)
+
+    # Check correlation matrix type
     assert isinstance(corr_matrix, pd.DataFrame)
-    
-    # Check that returned Axes is a matplotlib AxesSubplot
+
+    # Check axes type
     import matplotlib.axes
     assert isinstance(ax, matplotlib.axes.Axes)
-    
-    # Check that correlation matrix has correct shape
+
+    # Check figure type
+    import matplotlib.figure
+    assert isinstance(fig, matplotlib.figure.Figure)
+
+    # Correlation matrix shape should match number of numeric columns
     numeric_cols = sample_df.select_dtypes(include="number").columns.tolist()
     assert corr_matrix.shape == (len(numeric_cols), len(numeric_cols))
 
 def test_plot_correlation_matrix_specific_cols(sample_df):
-    """Test selecting specific numeric columns."""
     selected_cols = ["open", "close"]
-    corr_matrix, ax = plot_correlation_matrix(sample_df, numeric_cols=selected_cols)
-    
-    # Check correlation matrix shape matches selected columns
+    corr_matrix, ax, fig = plot_correlation_matrix(sample_df, numeric_cols=selected_cols)
+
     assert corr_matrix.shape == (len(selected_cols), len(selected_cols))
     assert all(corr_matrix.columns == selected_cols)
     assert all(corr_matrix.index == selected_cols)
 
 def test_plot_correlation_matrix_empty_df():
-    """Test behavior when DataFrame is empty."""
     empty_df = pd.DataFrame()
-    corr_matrix, ax = plot_correlation_matrix(empty_df)
-    
-    # Should return empty DataFrame
+    corr_matrix, ax, fig = plot_correlation_matrix(empty_df)
+
     assert corr_matrix.empty
+    import matplotlib.figure
+    assert isinstance(fig, matplotlib.figure.Figure)
