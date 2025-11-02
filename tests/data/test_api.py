@@ -1,77 +1,83 @@
-# Solution
+# test api.py
 import pytest
 import pandas as pd
-import requests
-from unittest.mock import patch, MagicMock
-
-from my_krml_25942133.data.api import fetch_api_to_csv  # correct import path
-
+from unittest.mock import patch, Mock
+from my_krml_25942133.data.api import fetch_api_to_csv  
 
 @pytest.fixture
-def sample_json_list():
-    return [{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}]
-
-
-@pytest.fixture
-def sample_json_dict():
-    return {"records": [{"id": 1, "value": 10}, {"id": 2, "value": 20}]}
-
-
-@patch("requests.get")
-def test_fetch_api_to_csv_list_response(mock_get, tmp_path, sample_json_list):
-    """Test fetching list-based JSON and saving as CSV."""
-    mock_response = MagicMock()
-    mock_response.json.return_value = sample_json_list
-    mock_response.raise_for_status.return_value = None
-    mock_get.return_value = mock_response
-
-    save_path = tmp_path / "data.csv"
-    df, path = fetch_api_to_csv("http://dummy.url", str(save_path))
-
-    expected_df = pd.DataFrame(sample_json_list)
-    pd.testing.assert_frame_equal(df, expected_df)
-    assert path == str(save_path)
-    assert save_path.exists()
-
+def mock_kraken_response():
+    # Example OHLC data (nested list like Kraken API)
+    return {
+        "error": [],
+        "result": {
+            "SOLUSD": [
+                [1762048800, "100", "105", "95", "102", "101", "5000", 10],
+                [1762052400, "102", "108", "101", "107", "105", "4500", 8]
+            ],
+            "last": 1762052400
+        }
+    }
 
 @patch("requests.get")
-def test_fetch_api_to_csv_dict_response(mock_get, tmp_path, sample_json_dict):
-    """Test fetching dict-based JSON with single list key."""
-    mock_response = MagicMock()
-    mock_response.json.return_value = sample_json_dict
-    mock_response.raise_for_status.return_value = None
-    mock_get.return_value = mock_response
+def test_fetch_api_to_csv_full(mock_get, mock_kraken_response, tmp_path):
+    # Mock the API response
+    mock_resp = Mock()
+    mock_resp.json.return_value = mock_kraken_response
+    mock_resp.raise_for_status = Mock()
+    mock_get.return_value = mock_resp
 
-    save_path = tmp_path / "data.csv"
-    df, path = fetch_api_to_csv("http://dummy.url", str(save_path))
+    save_path = tmp_path / "test.csv"
+    df, path = fetch_api_to_csv(
+        url="https://api.kraken.com/0/public/OHLC?pair=SOLUSD&interval=60",
+        save_path=str(save_path),
+        latest_only=False,
+        since_hours=24
+    )
 
-    expected_df = pd.DataFrame(sample_json_dict["records"])
-    pd.testing.assert_frame_equal(df, expected_df)
-    assert path == str(save_path)
-    assert save_path.exists()
-
-
-@patch("requests.get")
-def test_fetch_api_to_csv_invalid_json(mock_get, tmp_path):
-    """Test JSON that cannot be converted cleanly (nested dict)."""
-    mock_response = MagicMock()
-    mock_response.json.return_value = {"meta": {"count": 1}, "data": {"id": 1, "value": 100}}
-    mock_response.raise_for_status.return_value = None
-    mock_get.return_value = mock_response
-
-    save_path = tmp_path / "nested.csv"
-    df, path = fetch_api_to_csv("http://dummy.url", str(save_path))
-
-    assert isinstance(df, pd.DataFrame)
-    assert path == str(save_path)
-
+    # Check DataFrame shape
+    assert df.shape == (2, 8)
+    # Check column names
+    expected_cols = ["time", "open", "high", "low", "close", "vwap", "volume", "count"]
+    assert list(df.columns) == expected_cols
+    # Check types
+    assert pd.api.types.is_datetime64_any_dtype(df["time"])
+    for col in ["open", "high", "low", "close", "vwap", "volume"]:
+        assert pd.api.types.is_float_dtype(df[col])
 
 @patch("requests.get")
-def test_fetch_api_to_csv_http_error(mock_get, tmp_path):
-    """Test if HTTPError is raised when request fails."""
-    mock_response = MagicMock()
-    mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError("Bad Request")
-    mock_get.return_value = mock_response
+def test_fetch_api_to_csv_latest_only(mock_get, mock_kraken_response, tmp_path):
+    # Mock the API response
+    mock_resp = Mock()
+    mock_resp.json.return_value = mock_kraken_response
+    mock_resp.raise_for_status = Mock()
+    mock_get.return_value = mock_resp
 
-    with pytest.raises(requests.exceptions.HTTPError):
-        fetch_api_to_csv("http://bad.url", str(tmp_path / "fail.csv"))
+    save_path = tmp_path / "latest.csv"
+    df, path = fetch_api_to_csv(
+        url="https://api.kraken.com/0/public/OHLC?pair=SOLUSD&interval=60",
+        save_path=str(save_path),
+        latest_only=True,
+        since_hours=24
+    )
+
+    # Should only have one row
+    assert df.shape[0] == 1
+    # The row should match the last entry in the mock data
+    assert df.iloc[0]["close"] == 107.0
+
+@patch("requests.get")
+def test_fetch_api_to_csv_invalid_response(mock_get, tmp_path):
+    # Return invalid structure
+    mock_resp = Mock()
+    mock_resp.json.return_value = {"unexpected": "data"}
+    mock_resp.raise_for_status = Mock()
+    mock_get.return_value = mock_resp
+
+    save_path = tmp_path / "fail.csv"
+
+    with pytest.raises(ValueError):
+        fetch_api_to_csv(
+            url="https://api.kraken.com/0/public/OHLC?pair=SOLUSD&interval=60",
+            save_path=str(save_path),
+            latest_only=True
+        )
