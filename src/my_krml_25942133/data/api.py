@@ -23,9 +23,14 @@ def fetch_api_to_csv(url, save_path, latest_only=False, since_hours=24):
     data = response.json()
 
     # Extract OHLC data
+    if "result" not in data:
+        raise ValueError("Unexpected API response structure: 'result' key missing")
+
+    # Find the key that holds the pair data (ignore 'last')
     pair_key = next((k for k in data["result"].keys() if k != "last"), None)
     if pair_key is None:
         raise ValueError("No valid trading pair found in API response.")
+
     ohlc_data = data["result"][pair_key]
 
     # Define column names
